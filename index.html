@@ -92,12 +92,8 @@ function setToday() {
   dateInput.value = `${yyyy}-${mm}-${dd}`;
 }
 
-// 初回表示時
+// 初回表示時のみ当日をセット
 document.addEventListener('DOMContentLoaded', setToday);
-
-// タブ復帰・日付またぎ対策
-document.addEventListener('visibilitychange', () => {
-  if (!document.hidden) setToday();
 });
 
     async function shareText() {
