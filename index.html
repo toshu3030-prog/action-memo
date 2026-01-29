@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <title>日次行動メモ</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #f5f5f7;
+      margin: 0;
+      padding: 16px;
+    }
+    .card {
+      max-width: 640px;
+      margin: auto;
+      background: #fff;
+      border-radius: 16px;
+      padding: 16px;
+      box-shadow: 0 4px 12px rgba(0,0,0,.08);
+    }
+    h1 {
+      font-size: 18px;
+      margin-bottom: 12px;
+    }
+    input, textarea, button {
+      width: 100%;
+      font-size: 16px;
+      margin-bottom: 10px;
+    }
+    input, textarea {
+      padding: 10px;
+      border-radius: 10px;
+      border: 1px solid #ccc;
+    }
+    textarea {
+      height: 220px;
+    }
+    button {
+      padding: 12px;
+      border-radius: 12px;
+      border: none;
+      background: #007aff;
+      color: #fff;
+      cursor: pointer;
+    }
+    .secondary {
+      background: #e5e5ea;
+      color: #000;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>📝 日次行動メモ</h1>
+
+    <input type="date" id="date">
+    <textarea id="content" placeholder="今日やったことを書く"></textarea>
+
+    <button onclick="save()">共有して保存</button>
+    <button class="secondary" onclick="load()">過去ファイルを読み込む</button>
+
+    <input type="file" id="file" accept=".txt" hidden>
+  </div>
+
+  <script>
+    const date = document.getElementById('date');
+    const content = document.getElementById('content');
+    const fileInput = document.getElementById('file');
+
+    date.value = new Date().toISOString().slice(0,10);
+
+    async function save() {
+      if (!content.value.trim()) return alert('内容が空です');
+      const file = new File(
+        [content.value],
+        `${date.value}.txt`,
+        { type: 'text/plain' }
+      );
+      if (navigator.share && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file] });
+      } else {
+        alert('iPhone / Mac のSafariで使ってください');
+      }
+    }
+
+    function load() {
+      fileInput.click();
+    }
+
+    fileInput.onchange = () => {
+      const file = fileInput.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => content.value = reader.result;
+      reader.readAsText(file);
+    };
+  </script>
+</body>
+</html>
