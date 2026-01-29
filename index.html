@@ -83,22 +83,28 @@
     const content = document.getElementById('content');
     const fileInput = document.getElementById('fileInput');
 
-    // 初期日付は「開いた当日」に必ずセット
-function setToday() {
-  const today = new Date();
-  const yyyy = today.getFullYear();
-  const mm = String(today.getMonth() + 1).padStart(2, '0');
-  const dd = String(today.getDate()).padStart(2, '0');
-  dateInput.value = `${yyyy}-${mm}-${dd}`;
-}
+    // 日付を当日にセット（リロード含む）
+    function setToday() {
+      const today = new Date();
+      const yyyy = today.getFullYear();
+      const mm = String(today.getMonth() + 1).padStart(2, '0');
+      const dd = String(today.getDate()).padStart(2, '0');
+      dateInput.value = `${yyyy}-${mm}-${dd}`;
+    }
 
-// 初回表示時（リロード含む）は当日をセット
-document.addEventListener('DOMContentLoaded', setToday);
-});
+    // ページ読み込み時（＝リロード含む）
+    document.addEventListener('DOMContentLoaded', () => {
+      setToday();
+    });
 
     async function shareText() {
       const date = dateInput.value;
       const text = content.value;
+
+      if (!date) {
+        alert('日付が未設定です');
+        return;
+      }
 
       if (!text.trim()) {
         alert('内容が空です');
