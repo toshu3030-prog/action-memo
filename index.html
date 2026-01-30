@@ -2,11 +2,11 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
-  <title>日次行動メモ（共有保存）</title>
+  <title>日次行動メモ</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
     body {
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
       background: #f5f5f7;
       margin: 0;
       padding: 16px;
@@ -14,51 +14,39 @@
     .card {
       max-width: 640px;
       margin: auto;
-      background: white;
+      background: #fff;
       border-radius: 16px;
       padding: 16px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+      box-shadow: 0 4px 12px rgba(0,0,0,.08);
     }
     h1 {
       font-size: 18px;
       margin-bottom: 12px;
     }
-    input[type="date"] {￥￥
+    input, textarea, button {
       width: 100%;
       font-size: 16px;
-      padding: 10px;
-      border-radius: 10px;
-      border: 1px solid #ccc;
       margin-bottom: 10px;
     }
-    textarea {
-      width: 100%;
-      height: 220px;
-      font-size: 16px;
+    input, textarea {
       padding: 10px;
       border-radius: 10px;
       border: 1px solid #ccc;
-      box-sizing: border-box;
+    }
+    textarea {
+      height: 220px;
     }
     button {
-      margin-top: 10px;
-      width: 100%;
       padding: 12px;
-      font-size: 16px;
-      border: none;
       border-radius: 12px;
+      border: none;
       background: #007aff;
-      color: white;
+      color: #fff;
       cursor: pointer;
     }
     .secondary {
       background: #e5e5ea;
       color: #000;
-    }
-    .note {
-      margin-top: 10px;
-      font-size: 13px;
-      color: #555;
     }
   </style>
 </head>
@@ -66,87 +54,47 @@
   <div class="card">
     <h1>📝 日次行動メモ</h1>
 
-    <input type="date" id="date" />
+    <input type="date" id="date">
+    <textarea id="content" placeholder="今日やったことを書く"></textarea>
 
-    <textarea id="content" placeholder="今日やったことを自由に書く"></textarea>
+    <button onclick="save()">共有して保存</button>
+    <button class="secondary" onclick="load()">過去ファイルを読み込む</button>
 
-    <button onclick="shareText()">共有して保存（iCloud指定）</button>
-    <button class="secondary" onclick="loadFile()">過去ファイルを読み込む</button>
-
-    <p class="note">※ 保存時は「ファイルに保存」を選び、iCloud Drive 内の任意フォルダを指定してください。</p>
-
-    <input type="file" id="fileInput" accept=".txt" style="display:none" />
+    <input type="file" id="file" accept=".txt" hidden>
   </div>
 
   <script>
-  const dateInput = document.getElementById('date');
-  const content = document.getElementById('content');
-  const fileInput = document.getElementById('fileInput');
+    const date = document.getElementById('date');
+    const content = document.getElementById('content');
+    const fileInput = document.getElementById('file');
 
-  let loadedFileName = null; // 読み込んだ元ファイル名
+    date.value = new Date().toISOString().slice(0,10);
 
-  // 今日の日付を yyyy-mm-dd でセット（リロード含む）
-  function setToday() {
-    const today = new Date();
-    const yyyy = today.getFullYear();
-    const mm = String(today.getMonth() + 1).padStart(2, '0');
-    const dd = String(today.getDate()).padStart(2, '0');
-    dateInput.value = `${yyyy}-${mm}-${dd}`;
-  }
-
-  // ページ読み込み時
-  document.addEventListener('DOMContentLoaded', () => {
-    setToday();
-
-    // 日付を手動変更したら新規保存扱い
-    dateInput.addEventListener('change', () => {
-      loadedFileName = null;
-    });
-  });
-
-  async function shareText() {
-    const date = dateInput.value;
-    const text = content.value;
-
-    if (!date) {
-      alert('日付が未設定です');
-      return;
+    async function save() {
+      if (!content.value.trim()) return alert('内容が空です');
+      const file = new File(
+        [content.value],
+        `${date.value}.txt`,
+        { type: 'text/plain' }
+      );
+      if (navigator.share && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file] });
+      } else {
+        alert('iPhone / Mac のSafariで使ってください');
+      }
     }
 
-    if (!text.trim()) {
-      alert('内容が空です');
-      return;
+    function load() {
+      fileInput.click();
     }
 
-    const fileName = loadedFileName || `${date}.txt`;
-    const file = new File([text], fileName, { type: 'text/plain' });
-
-    if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-      await navigator.share({
-        files: [file],
-        title: `${fileName} 行動メモ`
-      });
-    } else {
-      alert('このブラウザでは共有保存が使えません。iPhoneのSafariで開いてください。');
-    }
-  }
-
-  function loadFile() {
-    fileInput.click();
-  }
-
-  fileInput.addEventListener('change', () => {
-    const file = fileInput.files[0];
-    if (!file) return;
-
-    loadedFileName = file.name; // 元ファイル名を保持
-
-    const reader = new FileReader();
-    reader.onload = () => {
-      content.value = reader.result;
+    fileInput.onchange = () => {
+      const file = fileInput.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => content.value = reader.result;
+      reader.readAsText(file);
     };
-    reader.readAsText(file);
-  });
-</script>
+  </script>
 </body>
 </html>
