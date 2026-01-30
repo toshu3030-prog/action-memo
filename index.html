@@ -82,6 +82,7 @@
     const dateInput = document.getElementById('date');
     const content = document.getElementById('content');
     const fileInput = document.getElementById('fileInput');
+    let loadedFileName = null; // 読み込んだ元ファイル名を保持
 
     // 日付を当日にセット（リロード含む）
     function setToday() {
@@ -111,7 +112,9 @@
         return;
       }
 
-      const file = new File([text], `${date}.txt`, { type: 'text/plain' });
+      // 既存ファイルを読み込んでいる場合は同名で保存
+      const fileName = loadedFileName || `${date}.txt`;
+      const file = new File([text], fileName, { type: 'text/plain' });
 
       if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
         await navigator.share({
@@ -135,6 +138,7 @@
       const reader = new FileReader();
       reader.onload = () => {
         content.value = reader.result;
+        loadedFileName = file.name; // 元のファイル名を保存
       };
       reader.readAsText(file);
     });
