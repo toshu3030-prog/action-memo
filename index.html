@@ -79,74 +79,74 @@
   </div>
 
   <script>
-    const dateInput = document.getElementById('date');
-    const content = document.getElementById('content');
-    const fileInput = document.getElementById('fileInput');
-    let loadedFileName = null; // 読み込んだ元ファイル名を保持
+  const dateInput = document.getElementById('date');
+  const content = document.getElementById('content');
+  const fileInput = document.getElementById('fileInput');
 
-    // 日付を当日にセット（リロード含む）
-    function setToday() {
-      const today = new Date();
-      const yyyy = today.getFullYear();
-      const mm = String(today.getMonth() + 1).padStart(2, '0');
-      const dd = String(today.getDate()).padStart(2, '0');
-      dateInput.value = `${yyyy}-${mm}-${dd}`;
+  let loadedFileName = null; // 読み込んだ元ファイル名
+
+  // 今日の日付を yyyy-mm-dd でセット（リロード含む）
+  function setToday() {
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    dateInput.value = `${yyyy}-${mm}-${dd}`;
+  }
+
+  // ページ読み込み時
+  document.addEventListener('DOMContentLoaded', () => {
+    setToday();
+
+    // 日付を手動変更したら新規保存扱い
+    dateInput.addEventListener('change', () => {
+      loadedFileName = null;
+    });
+  });
+
+  async function shareText() {
+    const date = dateInput.value;
+    const text = content.value;
+
+    if (!date) {
+      alert('日付が未設定です');
+      return;
     }
 
-    // ページ読み込み時（＝リロード含む）
-    document.addEventListener('DOMContentLoaded', () => {
-      setToday();
+    if (!text.trim()) {
+      alert('内容が空です');
+      return;
+    }
 
-      // 日付を手動変更したら新規扱いにする
-      dateInput.addEventListener('change', () => {
-        loadedFileName = null;
+    const fileName = loadedFileName || `${date}.txt`;
+    const file = new File([text], fileName, { type: 'text/plain' });
+
+    if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({
+        files: [file],
+        title: `${fileName} 行動メモ`
       });
-    });
-    });
-
-    async function shareText() {
-      const date = dateInput.value;
-      const text = content.value;
-
-      if (!date) {
-        alert('日付が未設定です');
-        return;
-      }
-
-      if (!text.trim()) {
-        alert('内容が空です');
-        return;
-      }
-
-      // 既存ファイルを読み込んでいる場合は同名で保存
-      const fileName = loadedFileName || `${date}.txt`;
-      const file = new File([text], fileName, { type: 'text/plain' });
-
-      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({
-          files: [file],
-          title: `${fileName} 行動メモ`
-        });
-      } else {
-        alert('このブラウザでは共有保存が使えません。iPhoneのSafariで開いてください。');
-      }
+    } else {
+      alert('このブラウザでは共有保存が使えません。iPhoneのSafariで開いてください。');
     }
+  }
 
-    function loadFile() {
-      fileInput.click();
-    }
+  function loadFile() {
+    fileInput.click();
+  }
 
-    fileInput.addEventListener('change', () => {
-      const file = fileInput.files[0];
-      if (!file) return;
+  fileInput.addEventListener('change', () => {
+    const file = fileInput.files[0];
+    if (!file) return;
 
-      const reader = new FileReader();
-      reader.onload = () => {
-        content.value = reader.result;
-        loadedFileName = file.name; // 元のファイル名を保存
-      };
-      reader.readAsText(file);
-    });
-  </script>
+    loadedFileName = file.name; // 元ファイル名を保持
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      content.value = reader.result;
+    };
+    reader.readAsText(file);
+  });
+</script>
 </body>
 </html>
