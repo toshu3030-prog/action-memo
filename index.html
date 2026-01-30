@@ -68,19 +68,25 @@
     const content = document.getElementById('content');
     const fileInput = document.getElementById('file');
 
+    // ページ表示・リロード時は必ず当日
     date.value = new Date().toISOString().slice(0,10);
 
     async function save() {
-      if (!content.value.trim()) return alert('内容が空です');
+      if (!content.value.trim()) {
+        alert('内容が空です');
+        return;
+      }
+
       const file = new File(
         [content.value],
         `${date.value}.txt`,
         { type: 'text/plain' }
       );
+
       if (navigator.share && navigator.canShare({ files: [file] })) {
         await navigator.share({ files: [file] });
       } else {
-        alert('iPhone / Mac のSafariで使ってください');
+        alert('iPhone / Mac / iPad の Safari で使ってください');
       }
     }
 
@@ -91,8 +97,11 @@
     fileInput.onchange = () => {
       const file = fileInput.files[0];
       if (!file) return;
+
       const reader = new FileReader();
-      reader.onload = () => content.value = reader.result;
+      reader.onload = () => {
+        content.value = reader.result;
+      };
       reader.readAsText(file);
     };
   </script>
