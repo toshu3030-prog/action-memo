@@ -29,7 +29,6 @@
       margin-bottom: 10px;
     }
     input, textarea {
-      width: 100%;
       box-sizing: border-box;
       padding: 10px;
       border-radius: 10px;
@@ -37,10 +36,8 @@
       -webkit-appearance: none;
       appearance: none;
     }
-
     input[type="date"] {
-      line-height: 1.4;
-      min-height: 44px; /* iOSのタップ領域対策 */
+      min-height: 44px;
     }
     textarea {
       height: 220px;
@@ -57,6 +54,11 @@
       background: #e5e5ea;
       color: #000;
     }
+    .info {
+      font-size: 13px;
+      color: #555;
+      margin-top: 6px;
+    }
   </style>
 </head>
 <body>
@@ -69,21 +71,22 @@
     <button onclick="save()">共有して保存</button>
     <button class="secondary" onclick="load()">過去ファイルを読み込む</button>
 
-    <p style="font-size:13px;color:#555;margin-top:8px;">
+    <p class="info" id="status">
       ※ 保存時は「ファイルに保存」を選び、iCloud Drive 内の任意フォルダを指定してください。<br>
-      ※ 同じ日付のファイルを読み込んで保存すると上書きされます。1.0
+      ※ 同じ日付のファイルを読み込んで保存すると上書きされます。v1.1
     </p>
 
     <input type="file" id="file" accept=".txt" hidden>
   </div>
 
   <script>
-    const date = document.getElementById('date');
+    const dateInput = document.getElementById('date');
     const content = document.getElementById('content');
     const fileInput = document.getElementById('file');
+    const status = document.getElementById('status');
 
-    // ページ表示・リロード時は必ず当日
-    date.value = new Date().toISOString().slice(0,10);
+    // 初期表示は当日
+    dateInput.value = new Date().toISOString().slice(0, 10);
 
     async function save() {
       if (!content.value.trim()) {
@@ -93,18 +96,19 @@
 
       const file = new File(
         [content.value],
-        `${date.value}.txt`,
+        `${dateInput.value}.txt`,
         { type: 'text/plain' }
       );
 
       if (navigator.share && navigator.canShare({ files: [file] })) {
         await navigator.share({ files: [file] });
       } else {
-        alert('iPhone / Mac / iPad の Safari で使ってください');
+        alert('iPhone / iPad / Mac の Safari で使ってください');
       }
     }
 
     function load() {
+      fileInput.value = '';
       fileInput.click();
     }
 
@@ -112,9 +116,26 @@
       const file = fileInput.files[0];
       if (!file) return;
 
+      // txt以外を弾く
+      if (!file.name.endsWith('.txt')) {
+        alert('txtファイルのみ読み込めます');
+        return;
+      }
+
+      // ファイル名から日付を取得
+      const dateFromName = file.name.replace('.txt', '');
+
+      // YYYY-MM-DD 形式チェック
+      if (/^\d{4}-\d{2}-\d{2}$/.test(dateFromName)) {
+        dateInput.value = dateFromName;
+      } else {
+        alert('ファイル名が日付形式ではありません');
+      }
+
       const reader = new FileReader();
       reader.onload = () => {
         content.value = reader.result;
+        status.textContent = `📂 ${file.name} を読み込みました（v1.1）`;
       };
       reader.readAsText(file);
     };
