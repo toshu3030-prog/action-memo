@@ -96,6 +96,12 @@
     // ページ読み込み時（＝リロード含む）
     document.addEventListener('DOMContentLoaded', () => {
       setToday();
+
+      // 日付を手動変更したら新規扱いにする
+      dateInput.addEventListener('change', () => {
+        loadedFileName = null;
+      });
+    });
     });
 
     async function shareText() {
@@ -119,8 +125,7 @@
       if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
         await navigator.share({
           files: [file],
-          title: `${date} 行動メモ`,
-          text: text
+          title: `${fileName} 行動メモ`
         });
       } else {
         alert('このブラウザでは共有保存が使えません。iPhoneのSafariで開いてください。');
