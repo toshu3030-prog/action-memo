@@ -68,7 +68,8 @@
 
     <button onclick="save()">共有して保存</button>
     <button class="secondary" onclick="load()">過去ファイルを読み込む</button>
-    <button class="secondary" onclick="makeMonthly()">月一覧作成</button>
+    <button class="secondary" onclick="makeMonthlyA()">月一覧作成（A）</button>
+    <button class="secondary" onclick="makeMonthlyB()">月CSV作成（B）</button>
 
     <p style="font-size:13px;color:#555;margin-top:8px;">
       ※ 保存時は「ファイルに保存」を選び、iCloud Drive 内の任意フォルダを指定してください。<br>
@@ -76,103 +77,164 @@
     </p>
 
     <input type="file" id="file" accept=".txt" hidden>
-    <input type="file" id="monthFiles" accept=".txt" multiple hidden>
+    <input type="file" id="monthFilesA" accept=".txt" multiple hidden>
+    <input type="file" id="monthFilesB" accept=".txt" multiple hidden>
   </div>
-<script>
-  const date = document.getElementById('date');
-  const content = document.getElementById('content');
-  const fileInput = document.getElementById('file');
-  const monthFilesInput = document.getElementById('monthFiles');
 
-  // ローカル日付で当日セット
-  const now = new Date();
-  date.value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+  <script>
+    const date = document.getElementById('date');
+    const content = document.getElementById('content');
+    const fileInput = document.getElementById('file');
+    const monthFilesInputA = document.getElementById('monthFilesA');
+    const monthFilesInputB = document.getElementById('monthFilesB');
 
-  async function save() {
-    if (!content.value.trim()) return alert('内容が空です');
-    const file = new File([content.value], `${date.value}.txt`, { type: 'text/plain' });
+    // ページ表示・リロード時は必ず「ローカル時間の当日」をセット
+    const now = new Date();
+    const yyyy = now.getFullYear();
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const dd = String(now.getDate()).padStart(2, '0');
+    date.value = `${yyyy}-${mm}-${dd}`;
 
-    if (navigator.share && navigator.canShare({ files: [file] })) {
-      await navigator.share({ files: [file] });
-    } else {
-      alert('iPhone / Mac / iPad の Safari で使ってください');
+    async function save() {
+      if (!content.value.trim()) {
+        alert('内容が空です');
+        return;
+      }
+
+      const file = new File([content.value], `${date.value}.txt`, { type: 'text/plain' });
+
+      if (navigator.share && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file] });
+      } else {
+        alert('iPhone / Mac / iPad の Safari で使ってください');
+      }
     }
-  }
 
-  function load() {
-    fileInput.value = '';
-    fileInput.click();
-  }
-
-  function makeMonthly() {
-    monthFilesInput.value = '';
-    monthFilesInput.click();
-  }
-
-  // 日次ファイル読み込み
-  fileInput.onchange = () => {
-    const file = fileInput.files[0];
-    if (!file) return;
-
-    const m = file.name.match(/(\d{4}-\d{2}-\d{2})/);
-    if (m) date.value = m[1];
-
-    const reader = new FileReader();
-    reader.onload = () => { content.value = String(reader.result ?? ''); };
-    reader.onerror = () => alert('読み込みに失敗しました');
-    reader.readAsText(file);
-  };
-
-  // 月一覧作成（A+CSV）
-  monthFilesInput.onchange = async () => {
-    const files = Array.from(monthFilesInput.files || []);
-    if (files.length === 0) return;
-
-    // デバッグ用：ここが動いてるか確認（動作確認できたら消してOK）
-    // alert(files.length + ' files selected');
-
-    // 全ファイル読み込み
-    const items = await Promise.all(files.map(f => new Promise((resolve, reject) => {
-      const m2 = f.name.match(/(\d{4}-\d{2}-\d{2})/);
-      if (!m2) return reject(new Error('日付が含まれないファイル名です: ' + f.name));
-
-      const r = new FileReader();
-      r.onload = () => resolve({
-        date: m2[1],
-        month: m2[1].slice(0, 7),
-        text: String(r.result ?? '').replace(/\r\n/g, '\n')
-      });
-      r.onerror = () => reject(new Error('読み込みに失敗しました: ' + f.name));
-      r.readAsText(f);
-    })));
-
-    // 同一月チェック
-    const months = Array.from(new Set(items.map(x => x.month)));
-    if (months.length !== 1) return alert('複数の月が混ざっています（' + months.join(', ') + '）。1ヶ月分だけ選択してください。');
-    const ym = months[0];
-
-    // 日付順
-    items.sort((a,b) => a.date.localeCompare(b.date));
-
-    // A（縦リスト）
-    const aText = items.map(x => {
-      const body = (x.text || '').trim();
-      return '■ ' + x.date + '\n' + (body ? body : '(空)') + '\n';
-    }).join('\n');
-
-    // B（CSV：1日=1行）
-    const csvEscape = (s) => '"' + String(s ?? '').replace(/\r\n/g, '\n').replace(/"/g,'""') + '"';
-    const csv = ['date,content', ...items.map(x => x.date + ',' + csvEscape((x.text || '').trim()))].join('\n');
-
-    const fileA = new File([aText], ym + '.txt', { type: 'text/plain' });
-    const fileB = new File([csv], ym + '.csv', { type: 'text/csv' });
-
-    if (navigator.share && navigator.canShare && navigator.canShare({ files: [fileA, fileB] })) {
-      await navigator.share({ files: [fileA, fileB] });
-    } else {
-      alert('このブラウザでは複数ファイル共有が使えません。iPhone/iPadのSafariで試してください。');
+    function load() {
+      fileInput.value = '';
+      fileInput.click();
     }
-  };
-</script>
+
+    function makeMonthlyA() {
+      monthFilesInputA.value = '';
+      monthFilesInputA.click();
+    }
+
+    function makeMonthlyB() {
+      monthFilesInputB.value = '';
+      monthFilesInputB.click();
+    }
+
+    // 日次ファイル読み込み
+    fileInput.onchange = () => {
+      const file = fileInput.files[0];
+      if (!file) return;
+
+      // ファイル名から日付を自動セット（YYYY-MM-DD.txt を想定）
+      const m = file.name.match(/(\d{4}-\d{2}-\d{2})/);
+      if (m) date.value = m[1];
+
+      const reader = new FileReader();
+      reader.onload = () => {
+        content.value = String(reader.result ?? '');
+      };
+      reader.onerror = () => alert('読み込みに失敗しました');
+      reader.readAsText(file);
+    };
+
+    async function readDailyFiles(files) {
+      const arr = Array.from(files || []);
+      if (arr.length === 0) return [];
+
+      const items = await Promise.all(
+        arr.map((f) =>
+          new Promise((resolve, reject) => {
+            const m2 = f.name.match(/(\d{4}-\d{2}-\d{2})/);
+            if (!m2) {
+              reject(new Error('日付が含まれないファイル名です: ' + f.name));
+              return;
+            }
+
+            const r = new FileReader();
+            r.onload = () =>
+              resolve({
+                date: m2[1],
+                month: m2[1].slice(0, 7),
+                text: String(r.result ?? '').replace(/\r\n/g, '\n'),
+              });
+            r.onerror = () => reject(new Error('読み込みに失敗しました: ' + f.name));
+            r.readAsText(f);
+          })
+        )
+      );
+
+      const months = Array.from(new Set(items.map((x) => x.month)));
+      if (months.length !== 1) {
+        throw new Error('複数の月が混ざっています（' + months.join(', ') + '）。1ヶ月分だけ選択してください。');
+      }
+
+      items.sort((a, b) => a.date.localeCompare(b.date));
+      return items;
+    }
+
+    function buildMonthlyA(items) {
+      return items
+        .map((x) => {
+          const body = (x.text || '').trim();
+          return '■ ' + x.date + '\n' + (body ? body : '(空)') + '\n';
+        })
+        .join('\n');
+    }
+
+    function buildMonthlyCSV(items) {
+      const csvEscape = (s) => {
+        const t = String(s ?? '').replace(/\r\n/g, '\n');
+        return '"' + t.replace(/"/g, '""') + '"';
+      };
+      const lines = ['date,content'];
+      for (const x of items) {
+        lines.push(x.date + ',' + csvEscape((x.text || '').trim()));
+      }
+      return lines.join('\n');
+    }
+
+    // 月一覧A（縦リストtxt）を出力
+    monthFilesInputA.onchange = async () => {
+      try {
+        const items = await readDailyFiles(monthFilesInputA.files);
+        if (items.length === 0) return;
+        const ym = items[0].month;
+        const aText = buildMonthlyA(items);
+        const fileA = new File([aText], ym + '.txt', { type: 'text/plain' });
+
+        if (navigator.share && navigator.canShare && navigator.canShare({ files: [fileA] })) {
+          await navigator.share({ files: [fileA] });
+        } else {
+          alert('このブラウザでは共有保存が使えません。iPhone/iPadのSafariで試してください。');
+        }
+      } catch (e) {
+        alert(e?.message ? String(e.message) : '月一覧（A）の作成でエラーが発生しました');
+      }
+    };
+
+    // 月CSV（Numbers用）を出力
+    monthFilesInputB.onchange = async () => {
+      try {
+        const items = await readDailyFiles(monthFilesInputB.files);
+        if (items.length === 0) return;
+        const ym = items[0].month;
+        const csv = buildMonthlyCSV(items);
+        const fileB = new File([csv], ym + '.csv', { type: 'text/csv' });
+
+        if (navigator.share && navigator.canShare && navigator.canShare({ files: [fileB] })) {
+          await navigator.share({ files: [fileB] });
+        } else {
+          alert('このブラウザでは共有保存が使えません。iPhone/iPadのSafariで試してください。');
+        }
+      } catch (e) {
+        alert(e?.message ? String(e.message) : '月CSV（B）の作成でエラーが発生しました');
+      }
+    };
+  </script>
 </body>
 </html>
