@@ -85,185 +85,144 @@
   </div>
 
   <script>
-    const date = document.getElementById('date');
-    const content = document.getElementById('content');
-    const fileInput = document.getElementById('file');
-    const monthFilesInputA = document.getElementById('monthFilesA');
-    const monthFilesInputB = document.getElementById('monthFilesB');
-    const statusEl = document.getElementById('status');
-    const retryShareBtn = document.getElementById('retryShareBtn');
+  const date = document.getElementById('date');
+  const content = document.getElementById('content');
+  const fileInput = document.getElementById('file');
+  const monthFilesInputA = document.getElementById('monthFilesA');
+  const monthFilesInputB = document.getElementById('monthFilesB');
+  const statusEl = document.getElementById('status');
+  const retryShareBtn = document.getElementById('retryShareBtn');
 
-    let pendingShareFiles = null;
+  // ローカル日付で当日セット
+  const now = new Date();
+  date.value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
 
-    async function shareFiles(files) {
-      // files: File[]
-      if (!navigator.share || !navigator.canShare || !navigator.canShare({ files })) {
-        alert('このブラウザでは共有保存が使えません。iPhone/iPadのSafariで試してください。');
-        return;
-      }
-      try {
-        // 共有はユーザー操作の直後でないと弾かれることがある（iOS Safari）
-        await navigator.share({ files });
-        pendingShareFiles = null;
-        retryShareBtn.style.display = 'none';
-        statusEl.textContent = '';
-      } catch (e) {
-        // NotAllowedError など（ユーザー操作が途切れた/許可されない等）
-        pendingShareFiles = files;
-        retryShareBtn.style.display = 'block';
-        statusEl.textContent = '共有がブロックされました。もう一度ボタンをタップしてください。';
-      }
+  // 共有が弾かれた時の再試行用
+  let pendingShareFiles = null;
+
+  async function shareFiles(files) {
+    if (!navigator.share || !navigator.canShare || !navigator.canShare({ files })) {
+      alert('このブラウザでは共有保存が使えません。iPhone/iPadのSafariで試してください。');
+      return;
     }
-
-    function retryShare() {
-      if (pendingShareFiles) {
-        shareFiles(pendingShareFiles);
-      }
+    try {
+      await navigator.share({ files });
+      pendingShareFiles = null;
+      if (retryShareBtn) retryShareBtn.style.display = 'none';
+      if (statusEl) statusEl.textContent = '';
+    } catch (e) {
+      // iOS Safari: ユーザー操作の文脈が切れると NotAllowedError で弾かれることがある
+      pendingShareFiles = files;
+      if (retryShareBtn) retryShareBtn.style.display = 'block';
+      if (statusEl) statusEl.textContent = '共有がブロックされました。もう一度ボタンをタップしてください。';
     }
+  }
 
-    // ページ表示・リロード時は必ず「ローカル時間の当日」をセット
-    const now = new Date();
-    const yyyy = now.getFullYear();
-    const mm = String(now.getMonth() + 1).padStart(2, '0');
-    const dd = String(now.getDate()).padStart(2, '0');
-    date.value = `${yyyy}-${mm}-${dd}`;
+  function retryShare() {
+    if (pendingShareFiles) shareFiles(pendingShareFiles);
+  }
 
-    async function save() {
-      if (!content.value.trim()) {
-        alert('内容が空です');
-        return;
-      }
+  async function save() {
+    if (!content.value.trim()) return alert('内容が空です');
+    const file = new File([content.value], `${date.value}.txt`, { type: 'text/plain' });
+    await shareFiles([file]);
+  }
 
-      const file = new File([content.value], `${date.value}.txt`, { type: 'text/plain' });
+  function load() {
+    fileInput.value = '';
+    fileInput.click();
+  }
 
-      await shareFiles([file]);
+  function makeMonthlyA() {
+    monthFilesInputA.value = '';
+    monthFilesInputA.click();
+  }
+
+  function makeMonthlyB() {
+    monthFilesInputB.value = '';
+    monthFilesInputB.click();
+  }
+
+  // 日次ファイル読み込み（読み込んだら日付も合わせる）
+  fileInput.onchange = () => {
+    const file = fileInput.files[0];
+    if (!file) return;
+
+    const m = file.name.match(/(\d{4}-\d{2}-\d{2})/);
+    if (m) date.value = m[1];
+
+    const reader = new FileReader();
+    reader.onload = () => { content.value = String(reader.result ?? ''); };
+    reader.onerror = () => alert('読み込みに失敗しました');
+    reader.readAsText(file);
+  };
+
+  async function readDailyFiles(fileList) {
+    const files = Array.from(fileList || []);
+    if (files.length === 0) return [];
+
+    const items = await Promise.all(files.map(f => new Promise((resolve, reject) => {
+      const m = f.name.match(/(\d{4}-\d{2}-\d{2})/);
+      if (!m) return reject(new Error('日付が含まれないファイル名です: ' + f.name));
+
+      const r = new FileReader();
+      r.onload = () => resolve({
+        date: m[1],
+        month: m[1].slice(0, 7),
+        text: String(r.result ?? '').replace(/\r\n/g, '\n')
+      });
+      r.onerror = () => reject(new Error('読み込みに失敗しました: ' + f.name));
+      r.readAsText(f);
+    })));
+
+    const months = Array.from(new Set(items.map(x => x.month)));
+    if (months.length !== 1) throw new Error('複数の月が混ざっています（' + months.join(', ') + '）。1ヶ月分だけ選択してください。');
+
+    items.sort((a,b) => a.date.localeCompare(b.date));
+    return items;
+  }
+
+  function buildMonthlyA(items) {
+    return items.map(x => {
+      const body = (x.text || '').trim();
+      return '■ ' + x.date + '\n' + (body ? body : '(空)') + '\n';
+    }).join('\n');
+  }
+
+  function buildMonthlyCSV(items) {
+    const csvEscape = (s) => '"' + String(s ?? '').replace(/\r\n/g, '\n').replace(/"/g, '""') + '"';
+    const lines = ['date,content'];
+    for (const x of items) {
+      lines.push(x.date + ',' + csvEscape((x.text || '').trim()));
     }
+    return lines.join('\n');
+  }
 
-    function load() {
-      fileInput.value = '';
-      fileInput.click();
+  // 月一覧（A）出力
+  monthFilesInputA.onchange = async () => {
+    try {
+      const items = await readDailyFiles(monthFilesInputA.files);
+      if (items.length === 0) return;
+      const ym = items[0].month;
+      const fileA = new File([buildMonthlyA(items)], ym + '.txt', { type: 'text/plain' });
+      await shareFiles([fileA]);
+    } catch (e) {
+      alert(e?.message ? String(e.message) : '月一覧（A）の作成でエラーが発生しました');
     }
+  };
 
-    function makeMonthlyA() {
-      monthFilesInputA.value = '';
-      monthFilesInputA.click();
+  // 月CSV（B）出力
+  monthFilesInputB.onchange = async () => {
+    try {
+      const items = await readDailyFiles(monthFilesInputB.files);
+      if (items.length === 0) return;
+      const ym = items[0].month;
+      const fileB = new File([buildMonthlyCSV(items)], ym + '.csv', { type: 'text/csv' });
+      await shareFiles([fileB]);
+    } catch (e) {
+      alert(e?.message ? String(e.message) : '月CSV（B）の作成でエラーが発生しました');
     }
-
-    function makeMonthlyB() {
-      monthFilesInputB.value = '';
-      monthFilesInputB.click();
-    }
-
-    // 日次ファイル読み込み
-    fileInput.onchange = () => {
-      const file = fileInput.files[0];
-      if (!file) return;
-
-      // ファイル名から日付を自動セット（YYYY-MM-DD.txt を想定）
-      const m = file.name.match(/(\d{4}-\d{2}-\d{2})/);
-      if (m) date.value = m[1];
-
-      const reader = new FileReader();
-      reader.onload = () => {
-        content.value = String(reader.result ?? '');
-      };
-      reader.onerror = () => alert('読み込みに失敗しました');
-      reader.readAsText(file);
-    };
-
-    async function readDailyFiles(files) {
-      const arr = Array.from(files || []);
-      if (arr.length === 0) return [];
-
-      const items = await Promise.all(
-        arr.map((f) =>
-          new Promise((resolve, reject) => {
-            const m2 = f.name.match(/(\d{4}-\d{2}-\d{2})/);
-            if (!m2) {
-              reject(new Error('日付が含まれないファイル名です: ' + f.name));
-              return;
-            }
-
-            const r = new FileReader();
-            r.onload = () =>
-              resolve({
-                date: m2[1],
-                month: m2[1].slice(0, 7),
-                text: String(r.result ?? '').replace(/\r\n/g, '\n'),
-              });
-            r.onerror = () => reject(new Error('読み込みに失敗しました: ' + f.name));
-            r.readAsText(f);
-          })
-        )
-      );
-
-      const months = Array.from(new Set(items.map((x) => x.month)));
-      if (months.length !== 1) {
-        throw new Error('複数の月が混ざっています（' + months.join(', ') + '）。1ヶ月分だけ選択してください。');
-      }
-
-      items.sort((a, b) => a.date.localeCompare(b.date));
-      return items;
-    }
-
-    function buildMonthlyA(items) {
-      return items
-        .map((x) => {
-          const body = (x.text || '').trim();
-          return '■ ' + x.date + '\n' + (body ? body : '(空)') + '\n';
-        })
-        .join('\n');
-    }
-
-    function buildMonthlyCSV(items) {
-      const csvEscape = (s) => {
-        const t = String(s ?? '').replace(/\r\n/g, '\n');
-        return '"' + t.replace(/"/g, '""') + '"';
-      };
-      const lines = ['date,content'];
-      for (const x of items) {
-        lines.push(x.date + ',' + csvEscape((x.text || '').trim()));
-      }
-      return lines.join('\n');
-    }
-
-    // 月一覧A（縦リストtxt）を出力
-    monthFilesInputA.onchange = async () => {
-      try {
-        const items = await readDailyFiles(monthFilesInputA.files);
-        if (items.length === 0) return;
-        const ym = items[0].month;
-        const aText = buildMonthlyA(items);
-        const fileA = new File([aText], ym + '.txt', { type: 'text/plain' });
-
-        await shareFiles([fileA]);
-      } catch (e) {
-        alert(e?.message ? String(e.message) : '月一覧（A）の作成でエラーが発生しました');
-      }
-    };
-      } catch (e) {
-        alert(e?.message ? String(e.message) : '月一覧（A）の作成でエラーが発生しました');
-      }
-    };
-
-    // 月CSV（Numbers用）を出力
-    monthFilesInputB.onchange = async () => {
-      try {
-        const items = await readDailyFiles(monthFilesInputB.files);
-        if (items.length === 0) return;
-        const ym = items[0].month;
-        const csv = buildMonthlyCSV(items);
-        const fileB = new File([csv], ym + '.csv', { type: 'text/csv' });
-
-        await shareFiles([fileB]);
-      } catch (e) {
-        alert(e?.message ? String(e.message) : '月CSV（B）の作成でエラーが発生しました');
-      }
-    };
-      } catch (e) {
-        alert(e?.message ? String(e.message) : '月CSV（B）の作成でエラーが発生しました');
-      }
-    };
-  </script>
+  };
+</script>
 </body>
 </html>
