@@ -76,6 +76,9 @@
       ※ 同じ日付のファイルを読み込んで保存すると上書きされます。
     </p>
 
+    <p id="status" style="font-size:13px;color:#555;margin:8px 0 0;"></p>
+    <button id="retryShareBtn" class="secondary" style="display:none;" onclick="retryShare()">もう一度 共有して保存</button>
+
     <input type="file" id="file" accept=".txt" hidden>
     <input type="file" id="monthFilesA" accept=".txt" multiple hidden>
     <input type="file" id="monthFilesB" accept=".txt" multiple hidden>
@@ -87,6 +90,36 @@
     const fileInput = document.getElementById('file');
     const monthFilesInputA = document.getElementById('monthFilesA');
     const monthFilesInputB = document.getElementById('monthFilesB');
+    const statusEl = document.getElementById('status');
+    const retryShareBtn = document.getElementById('retryShareBtn');
+
+    let pendingShareFiles = null;
+
+    async function shareFiles(files) {
+      // files: File[]
+      if (!navigator.share || !navigator.canShare || !navigator.canShare({ files })) {
+        alert('このブラウザでは共有保存が使えません。iPhone/iPadのSafariで試してください。');
+        return;
+      }
+      try {
+        // 共有はユーザー操作の直後でないと弾かれることがある（iOS Safari）
+        await navigator.share({ files });
+        pendingShareFiles = null;
+        retryShareBtn.style.display = 'none';
+        statusEl.textContent = '';
+      } catch (e) {
+        // NotAllowedError など（ユーザー操作が途切れた/許可されない等）
+        pendingShareFiles = files;
+        retryShareBtn.style.display = 'block';
+        statusEl.textContent = '共有がブロックされました。もう一度ボタンをタップしてください。';
+      }
+    }
+
+    function retryShare() {
+      if (pendingShareFiles) {
+        shareFiles(pendingShareFiles);
+      }
+    }
 
     // ページ表示・リロード時は必ず「ローカル時間の当日」をセット
     const now = new Date();
@@ -103,11 +136,7 @@
 
       const file = new File([content.value], `${date.value}.txt`, { type: 'text/plain' });
 
-      if (navigator.share && navigator.canShare({ files: [file] })) {
-        await navigator.share({ files: [file] });
-      } else {
-        alert('iPhone / Mac / iPad の Safari で使ってください');
-      }
+      await shareFiles([file]);
     }
 
     function load() {
@@ -207,11 +236,11 @@
         const aText = buildMonthlyA(items);
         const fileA = new File([aText], ym + '.txt', { type: 'text/plain' });
 
-        if (navigator.share && navigator.canShare && navigator.canShare({ files: [fileA] })) {
-          await navigator.share({ files: [fileA] });
-        } else {
-          alert('このブラウザでは共有保存が使えません。iPhone/iPadのSafariで試してください。');
-        }
+        await shareFiles([fileA]);
+      } catch (e) {
+        alert(e?.message ? String(e.message) : '月一覧（A）の作成でエラーが発生しました');
+      }
+    };
       } catch (e) {
         alert(e?.message ? String(e.message) : '月一覧（A）の作成でエラーが発生しました');
       }
@@ -226,11 +255,11 @@
         const csv = buildMonthlyCSV(items);
         const fileB = new File([csv], ym + '.csv', { type: 'text/csv' });
 
-        if (navigator.share && navigator.canShare && navigator.canShare({ files: [fileB] })) {
-          await navigator.share({ files: [fileB] });
-        } else {
-          alert('このブラウザでは共有保存が使えません。iPhone/iPadのSafariで試してください。');
-        }
+        await shareFiles([fileB]);
+      } catch (e) {
+        alert(e?.message ? String(e.message) : '月CSV（B）の作成でエラーが発生しました');
+      }
+    };
       } catch (e) {
         alert(e?.message ? String(e.message) : '月CSV（B）の作成でエラーが発生しました');
       }
