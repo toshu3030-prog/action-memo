@@ -84,24 +84,13 @@
   const fileInput = document.getElementById('file');
   const monthFilesInput = document.getElementById('monthFiles');
 
-  // ページ表示・リロード時は必ず「ローカル時間の当日」をセット
+  // ローカル日付で当日セット
   const now = new Date();
-  const yyyy = now.getFullYear();
-  const mm = String(now.getMonth() + 1).padStart(2, '0');
-  const dd = String(now.getDate()).padStart(2, '0');
-  date.value = `${yyyy}-${mm}-${dd}`;
+  date.value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
 
   async function save() {
-    if (!content.value.trim()) {
-      alert('内容が空です');
-      return;
-    }
-
-    const file = new File(
-      [content.value],
-      `${date.value}.txt`,
-      { type: 'text/plain' }
-    );
+    if (!content.value.trim()) return alert('内容が空です');
+    const file = new File([content.value], `${date.value}.txt`, { type: 'text/plain' });
 
     if (navigator.share && navigator.canShare({ files: [file] })) {
       await navigator.share({ files: [file] });
@@ -111,86 +100,70 @@
   }
 
   function load() {
-    // 同じファイルを続けて選べるようにする
     fileInput.value = '';
     fileInput.click();
   }
 
   function makeMonthly() {
-    // 同じ選択を続けてできるようにする
     monthFilesInput.value = '';
     monthFilesInput.click();
   }
 
-  // 1ファイル読み込み（.txt/.csvでもOK）
+  // 日次ファイル読み込み
   fileInput.onchange = () => {
     const file = fileInput.files[0];
     if (!file) return;
 
-    // ファイル名から日付を自動セット（YYYY-MM-DD を含む想定）
     const m = file.name.match(/(\d{4}-\d{2}-\d{2})/);
     if (m) date.value = m[1];
 
     const reader = new FileReader();
-    reader.onload = () => {
-      content.value = String(reader.result ?? '');
-    };
+    reader.onload = () => { content.value = String(reader.result ?? ''); };
+    reader.onerror = () => alert('読み込みに失敗しました');
     reader.readAsText(file);
   };
 
-  // 月一覧作成：日次TXTをまとめて選択 → A(縦リストTXT) と B(CSV) を2ファイル出力
+  // 月一覧作成（A+CSV）
   monthFilesInput.onchange = async () => {
     const files = Array.from(monthFilesInput.files || []);
     if (files.length === 0) return;
 
-    // 1) 全ファイル読み込み＋日付抽出
-    const items = await Promise.all(
-      files.map((f) => new Promise((resolve, reject) => {
-        const m2 = f.name.match(/(\d{4}-\d{2}-\d{2})/);
-        if (!m2) {
-          reject(new Error('日付が含まれないファイル名です: ' + f.name));
-          return;
-        }
-        const r = new FileReader();
-        r.onload = () => resolve({
-          date: m2[1],
-          month: m2[1].slice(0, 7),
-          text: String(r.result ?? '').replace(/\r\n/g, '\n'),
-        });
-        r.onerror = () => reject(new Error('読み込みに失敗しました: ' + f.name));
-        r.readAsText(f);
-      }))
-    );
+    // デバッグ用：ここが動いてるか確認（動作確認できたら消してOK）
+    // alert(files.length + ' files selected');
 
-    // 2) 同一月チェック
+    // 全ファイル読み込み
+    const items = await Promise.all(files.map(f => new Promise((resolve, reject) => {
+      const m2 = f.name.match(/(\d{4}-\d{2}-\d{2})/);
+      if (!m2) return reject(new Error('日付が含まれないファイル名です: ' + f.name));
+
+      const r = new FileReader();
+      r.onload = () => resolve({
+        date: m2[1],
+        month: m2[1].slice(0, 7),
+        text: String(r.result ?? '').replace(/\r\n/g, '\n')
+      });
+      r.onerror = () => reject(new Error('読み込みに失敗しました: ' + f.name));
+      r.readAsText(f);
+    })));
+
+    // 同一月チェック
     const months = Array.from(new Set(items.map(x => x.month)));
-    if (months.length !== 1) {
-      alert('複数の月が混ざっています（' + months.join(', ') + '）。1ヶ月分だけ選択してください。');
-      return;
-    }
+    if (months.length !== 1) return alert('複数の月が混ざっています（' + months.join(', ') + '）。1ヶ月分だけ選択してください。');
     const ym = months[0];
 
-    // 3) 日付順にソート
-    items.sort((a, b) => a.date.localeCompare(b.date));
+    // 日付順
+    items.sort((a,b) => a.date.localeCompare(b.date));
 
-    // 4) A（縦リスト）生成
+    // A（縦リスト）
     const aText = items.map(x => {
       const body = (x.text || '').trim();
       return '■ ' + x.date + '\n' + (body ? body : '(空)') + '\n';
     }).join('\n');
 
-    // 5) B（CSV）生成（1日=1行：date,content）
-    const csvEscape = (s) => {
-      const t = String(s ?? '').replace(/\r\n/g, '\n');
-      return '"' + t.replace(/"/g, '""') + '"';
-    };
-    const csvLines = ['date,content'];
-    for (const x of items) {
-      csvLines.push(x.date + ',' + csvEscape((x.text || '').trim()));
-    }
-    const csv = csvLines.join('\n');
+    // B（CSV：1日=1行）
+    const csvEscape = (s) => '"' + String(s ?? '').replace(/\r\n/g, '\n').replace(/"/g,'""') + '"';
+    const csv = ['date,content', ...items.map(x => x.date + ',' + csvEscape((x.text || '').trim()))].join('\n');
 
-    // 6) 2ファイルとして共有（filesのみ）
     const fileA = new File([aText], ym + '.txt', { type: 'text/plain' });
     const fileB = new File([csv], ym + '.csv', { type: 'text/csv' });
 
