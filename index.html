@@ -111,18 +111,17 @@
 
   // 日次ファイル読み込み
   fileInput.onchange = () => {
-  const file = fileInput.files[0];
-  if (!file) return;
+    const file = fileInput.files[0];
+    if (!file) return;
 
-  const m = file.name.match(/(\d{4}-\d{2}-\d{2})/);
-  if (m) date.value = m[1];
+    const m = file.name.match(/(\d{4}-\d{2}-\d{2})/);
+    if (m) date.value = m[1];
 
-  const reader = new FileReader();
-  reader.onload = () => {
-    content.value = reader.result;
+    const reader = new FileReader();
+    reader.onload = () => { content.value = String(reader.result ?? ''); };
+    reader.onerror = () => alert('読み込みに失敗しました');
+    reader.readAsText(file);
   };
-  reader.readAsText(file);
-};
 
   // 月一覧作成（A+CSV）
   monthFilesInput.onchange = async () => {
