@@ -70,6 +70,7 @@
     <button class="secondary" onclick="load()">過去ファイルを読み込む</button>
     <button class="secondary" onclick="makeMonthlyA()">月一覧作成</button>
     <button class="secondary" onclick="makeMonthlyB()">月CSV作成</button>
+    <button class="secondary" onclick="resetApp()">初期化</button>
 
     <p style="font-size:13px;color:#555;margin-top:8px;">
       ※ 保存時は「ファイルに保存」を選び、iCloud Drive 内の任意フォルダを指定してください。<br>
@@ -223,6 +224,20 @@
       alert(e?.message ? String(e.message) : '月CSV（B）の作成でエラーが発生しました');
     }
   };
+  function resetApp() {
+    // 今日の日付に戻す
+    const now = new Date();
+    date.value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
+    // 内容クリア
+    content.value = '';
+
+    // 共有の再試行状態などもリセット
+    if (typeof pendingShareFiles !== 'undefined') pendingShareFiles = null;
+    if (typeof retryShareBtn !== 'undefined' && retryShareBtn) retryShareBtn.style.display = 'none';
+    if (typeof statusEl !== 'undefined' && statusEl) statusEl.textContent = '';
+  }
+
 </script>
 </body>
 </html>
