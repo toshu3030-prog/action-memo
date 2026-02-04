@@ -133,16 +133,22 @@
       return acc + (isDrinkingDay(v) ? 1 : 0);
     }, 0);
 
-    weekPill.textContent = `今週の飲酒：${drinkCount}/2（${weekKey}）`;
+    weekPill.textContent = `今週の飲酒：${drinkCount}/4（${weekKey}）`;
 
     // status message
     statusBox.innerHTML = "";
-    if (drinkCount >= 3) {
-      statusBox.innerHTML = `<div class="warn">⚠️ 今週の飲酒が <strong>${drinkCount}回</strong> になっています。週2ルールを超えています。</div>`;
-    } else if (drinkCount === 2) {
-      statusBox.innerHTML = `<div class="warn">注意：今週はすでに <strong>2回</strong> 飲んでいます。次は休肝日にすると目標に近いです。</div>`;
+    if (drinkCount >= 5) {
+      statusBox.innerHTML = `<div class="warn">
+      ⚠️ 今週の飲酒が <strong>${drinkCount}回</strong> になっています（上限4回）。
+      </div>`;
+    } else if (drinkCount === 4) {
+    statusBox.innerHTML = `<div class="warn">
+      注意：今週はすでに <strong>4回</strong> 飲んでいます。次は休肝日にすると目標達成です。
+      </div>`;
     } else {
-      statusBox.innerHTML = `<div class="ok">いい感じ：今週の飲酒は <strong>${drinkCount}回</strong> です。</div>`;
+    statusBox.innerHTML = `<div class="ok">
+      いい感じ：今週の飲酒は <strong>${drinkCount}回</strong> です。
+      </div>`;
     }
 
     // last 14 days list
