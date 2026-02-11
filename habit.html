@@ -102,7 +102,16 @@
   function isDrinkingDay(dayObj) {
     return !dayObj.noAlcohol;
   }
-
+  
+  function ensureTodayExists() {
+    const all = loadAll();
+    const ymd = toYMD(new Date());
+    if (!all[ymd]) {
+      all[ymd] = { noAlcohol:false, training:false, run:false };
+      saveAll(all);
+    }
+  }
+  
   function render() {
     const all = loadAll();
     const today = new Date();
@@ -190,6 +199,7 @@
     render();
   });
 
+  ensureTodayExists();
   render();
 </script>
 </body>
